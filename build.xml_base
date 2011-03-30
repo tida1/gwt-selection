@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<project name="Common" default="all" basedir=".">
+  <description>
+       The Common GWT build file
+  </description>
+
+  <property name="gwt.module" value="Selection"/>
+  <property name="GWT_HOME" value="${GWTDIR}"/>
+  <property name="app_package" value="com.bfr.client"/>
+  <property name="app_dir" value="com/bfr/client"/>
+  <property name="app_name" value="selection"/>
+     
+  <!-- set classpath -->
+  <path id="project.class.path">
+    <pathelement path="${java.class.path}/"/>
+    <pathelement path="${GWT_HOME}/gwt-user.jar"/>
+  </path>
+  
+  <target name="build" description="Compile src to bin">
+    <mkdir dir="bin"/>
+    <javac srcdir="src" destdir="bin" includes="**" debug="on" 
+	   debuglevel="lines,vars,source" source="1.5">
+      <classpath refid="project.class.path"/>
+    </javac>
+  </target>
+
+  <target name="jar" depends="build" description="Package up the project as a jar">
+    <copy file="src/${app_dir}/${gwt.module}.gwt.xml" todir="bin/${app_dir}"/>
+    <jar destfile="${gwt.module}.jar">
+      <fileset dir="bin">
+        <include name="**/*.class"/>
+      </fileset>
+      <fileset dir="src">
+        <include name="**"/>
+      </fileset>
+    </jar>
+  </target>
+     
+  <target name="clean">
+    <!-- Delete the bin directory tree -->
+    <delete dir="bin"/>
+  </target>
+
+  <target name="all" depends="jar"/>
+
+</project>
