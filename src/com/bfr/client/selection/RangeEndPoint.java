@@ -34,6 +34,7 @@ public class RangeEndPoint implements Comparable<RangeEndPoint>
     public static final String DEFAULT_WS_REXP =
 	"[\t-\r \u0085\u00A0\u1680\u180E\u2000-\u200B\u2028\u2029\u202F\u205F\u3000\uFEFF]+";
     
+    @SuppressWarnings("unused")
     private static RegExp c_wsRexp;
     
     /**
