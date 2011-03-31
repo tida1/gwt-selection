@@ -5,6 +5,7 @@
   </description>
 
   <property name="gwt.module" value="Selection"/>
+  <!-- COPY THIS FILE TO build.xml, CHANGE ${GWTDIR} TO WHERE YOU HAVE GWT INSTALLED -->
   <property name="GWT_HOME" value="${GWTDIR}"/>
   <property name="app_package" value="com.bfr.client"/>
   <property name="app_dir" value="com/bfr/client"/>
