@@ -36,7 +36,18 @@
       </fileset>
     </jar>
   </target>
-     
+  
+  <target name="testjar" depends="jar" description="Package up SelectionTest project">
+    <jar destfile="SelectionTest.jar">
+      <fileset dir=".">
+        <include name="SelectionTest/**"/>
+        <exclude name="**/classes/**"/>
+        <exclude name="**/lib/**"/>
+	<exclude name="**/selectiontest/**"/>
+      </fileset>
+    </jar>
+  </target>
+  
   <target name="clean">
     <!-- Delete the bin directory tree -->
     <delete dir="bin"/>
