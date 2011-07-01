@@ -264,7 +264,7 @@ public class Range
     public void _setRange(RangeEndPoint startPoint, RangeEndPoint endPoint) 
     {
 	m_document = startPoint == null ? null : 
-	    	     startPoint.getTextNode().getOwnerDocument();
+	    	     startPoint.getNode().getOwnerDocument();
 	m_startPoint = startPoint;
 	m_endPoint = endPoint;
     }
@@ -538,7 +538,7 @@ public class Range
     public void setEndPoint(RangeEndPoint endPoint)
     {
 	assert ((m_startPoint != null) ||
-	        (endPoint.getTextNode().getOwnerDocument() == m_document));
+	        (endPoint.getNode().getOwnerDocument() == m_document));
 	m_endPoint = endPoint;
 	m_range = null;
     }
@@ -575,8 +575,8 @@ public class Range
      */
     public void setRange(RangeEndPoint startPoint, RangeEndPoint endPoint) 
     {
-	assert (startPoint.getTextNode().getOwnerDocument() ==
-	    endPoint.getTextNode().getOwnerDocument());
+	assert (startPoint.getNode().getOwnerDocument() ==
+	    endPoint.getNode().getOwnerDocument());
 	
 	_setRange(startPoint, endPoint);
 	m_range = null;
@@ -591,7 +591,7 @@ public class Range
     public void setStartPoint(RangeEndPoint startPoint)
     {
 	assert ((m_endPoint != null) &&
-	        (startPoint.getTextNode().getOwnerDocument() == m_document));
+	        (startPoint.getNode().getOwnerDocument() == m_document));
 	
 	m_startPoint = startPoint;
 	m_range = null;

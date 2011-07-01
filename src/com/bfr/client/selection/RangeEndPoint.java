@@ -16,6 +16,8 @@
 package com.bfr.client.selection;
 
 import com.google.gwt.dom.client.*;
+import com.google.gwt.dom.client.Style.Position;
+import com.google.gwt.dom.client.Style.Unit;
 import com.google.gwt.regexp.shared.RegExp;
 
 /**
@@ -186,6 +188,14 @@ public class RangeEndPoint implements Comparable<RangeEndPoint>
 	}
 	String res = ((Text)m_node).getData();
 	return asStart ? res.substring(m_offset) : res.substring(0, m_offset);
+    }
+    
+    /**
+    * Get this as a node (be it text or element)
+    */
+    public Node getNode()
+    {
+	return m_node;
     }
     
     /**
@@ -374,6 +384,339 @@ public class RangeEndPoint implements Comparable<RangeEndPoint>
 	                                         start, false);
 	setTextNode(text, start);
     }
+    
+    /**
+    * Given an absolute x/y coordinate and an element where that coordinate 
+    * falls (generally obtained from an event), creates a RangeEndPoint
+    * containing or closest to the coordinate.  If the point falls within a
+    * non-textual element, a non-text endpoint is returned.  If the point falls
+    * within a text-containing element but not within any of the actual child
+    * text, tries to find the closest text point.
+    * 
+    * @param element An element this point falls within
+    * @param absX Absolute X coordinate, ie from  Event.getClientX
+    * @param absY Absolute Y coordinate, ie from  Event.getClientY
+    * @return A rangeendpoint where the click occured, or null if not found
+    */
+    private static Element spn;
+    public static RangeEndPoint findLocation(Element element, int absX, int absY)
+    {
+	// Convert to document-relative coordinates
+	Document doc = element.getOwnerDocument();
+	int relX = absX - doc.getBodyOffsetLeft();
+	int offY = getTotalOffsetY(doc);
+	int relY = absY + offY;
+	
+	if (spn == null)
+	{
+	    spn = doc.createSpanElement();
+	    spn.setInnerText("X");
+	}
+	Element body = doc.getBody();
+	body.appendChild(spn);
+	spn.getStyle().setPosition(Position.ABSOLUTE);
+	spn.getStyle().setTop(relY, Unit.PX);
+	spn.getStyle().setLeft(relX, Unit.PX);
+	
+	FindLocRes locRes = findLocation(doc, element, relX, relY);
+	
+	return (locRes == null) ? null : locRes.ep;
+    }
+    
+    private static native int getTotalOffsetY(Document doc)
+    /*-{
+        var res = 0;
+        var wind = doc.defaultView || doc.parentWindow;
+        if (wind)
+        {
+            res = wind.pageYOffset;
+	}
+	return res;
+    }-*/;
+
+    /*
+            if (wind.mozInnerScreenX)
+            {
+                res = res + wind.mozInnerScreenX;
+            }
+            else if (wind.screenTop)
+            {
+                res = res + wind.screenTop;
+            }
+            else
+            {
+                // webkit?
+            }
+     */
+    
+    private static class FindLocRes
+    {
+	RangeEndPoint ep;
+	int distance;
+	
+	public FindLocRes(RangeEndPoint ept) 
+	{
+	    this(ept, 0);
+	}
+	public FindLocRes(RangeEndPoint ept, int dist)
+	{
+	    ep = ept;
+	    distance = dist;
+	}
+	
+	public static FindLocRes replace(FindLocRes curr, FindLocRes comp)
+	{
+	    FindLocRes res = curr;
+	    if ((comp != null) &&
+		((curr == null) || 
+		 (curr.ep == null) || 
+		 (comp.distance < curr.distance)))
+	    {
+		res = comp;
+	    }
+	    return res;
+	}
+	
+	public boolean isExact() {return (ep != null) && (distance == 0);}
+    }
+    
+    private static FindLocRes findLocation(Document doc, Element ele, 
+                                           int relX, int relY)
+    {
+	FindLocRes res = null;
+	
+	if (contains(ele, relX, relY) && isVisible(doc, ele))
+	{
+	    if (ele.hasChildNodes())
+	    {
+		// Iterate through children until we hit an exact match
+		for (int i = 0; 
+		     (i < ele.getChildCount()) && 
+		      ((res == null) || !res.isExact()); 
+		     i++)
+		{
+		    FindLocRes tmp;
+		    Node child = ele.getChild(i);
+		    if (child.getNodeType() == Node.ELEMENT_NODE)
+		    {
+			tmp = findLocation(doc, (Element)child, relX, relY);
+		    }
+		    else
+		    {
+			tmp = findLocation(doc, (Text)child, relX, relY);
+		    }
+		    res = FindLocRes.replace(res, tmp);
+		}
+	    }
+	    else
+	    {
+		// If this contains but has no children, then this is it
+		res = new FindLocRes(new RangeEndPoint(ele));
+	    }
+	}
+	
+	return res;
+    }
+    
+    private static FindLocRes findLocation(Document doc, Text text, 
+                                           int relX, int relY)
+    {
+	FindLocRes res = null;
+	
+	String str = text.getData();
+	if ((str == null) || str.isEmpty())
+	{
+	    // Theoretically it could be in here still..
+	}
+	else
+	{
+	    // Insert 2 spans and do a binary search to find the single
+	    // character that fits
+	    Element span1 = doc.createSpanElement();
+	    Element span2 = doc.createSpanElement();
+	    Element span3 = doc.createSpanElement();
+	    Element span4 = doc.createSpanElement();
+	    
+	    Element parent = text.getParentElement();
+	    parent.insertBefore(span1, text);
+	    parent.insertBefore(span2, text);
+	    parent.insertBefore(span3, text);
+	    parent.insertBefore(span4, text);
+	    parent.removeChild(text);
+	    
+	    try
+	    {
+		int len = str.length() / 2;
+		span2.setInnerText(str.substring(0, len));
+		span3.setInnerText(str.substring(len));
+		
+		res = findLocation(text, span1, span2, span3, span4, 
+		                   relX, relY);
+	    }
+	    catch (Exception ex) {}
+	    finally
+	    {
+		parent.insertAfter(text, span4);
+		parent.removeChild(span1);
+		parent.removeChild(span2);
+		parent.removeChild(span3);
+		parent.removeChild(span4);
+	    }
+	}
+	
+	
+	return res;
+    }
+    
+    private static FindLocRes findLocation(Text origText,
+                                           Element span1, Element span2, 
+                                           Element span3, Element span4, 
+                                           int relX, int relY)
+    {
+	FindLocRes res = null;
+	
+	while (res == null)
+	{
+	    if (contains(span2, relX, relY))
+	    {
+		String str = span2.getInnerText();
+		if (str.length() <= 1)
+		{
+		    res = new FindLocRes(
+		              new RangeEndPoint(origText, 
+		                                span1.getInnerText().length() +
+		                                closerOffset(span2, relX)));
+		}
+		else
+		{
+		    span4.setInnerHTML(span3.getInnerHTML() + 
+		                       span4.getInnerHTML());
+		    int len = str.length() / 2;
+		    span2.setInnerHTML(str.substring(0, len));
+		    span3.setInnerHTML(str.substring(len));
+		}
+	    }
+	    else if (contains(span3, relX, relY))
+	    {
+		String str = span3.getInnerText();
+		if (str.length() <= 1)
+		{
+		    res = new FindLocRes(
+		              new RangeEndPoint(origText, 
+		                                span1.getInnerText().length() +
+		                                span2.getInnerHTML().length() +
+		                                closerOffset(span3, relX)));
+		}
+		else
+		{
+		    span1.setInnerHTML(span1.getInnerHTML() + 
+		                       span2.getInnerHTML());
+		    int len = str.length() / 2;
+		    span2.setInnerHTML(str.substring(0, len));
+		    span3.setInnerHTML(str.substring(len));
+		}
+	    }
+	    else
+	    {
+		// This might be close to one end or the other of this
+		int dist1 = getLocDistance(span1.hasChildNodes() ? span2 
+								 : span1,
+					   relX, relY);
+		int dist2 = getLocDistance(span4.hasChildNodes() ? span4 
+								 : span3,
+					   relX, relY);
+		res = new FindLocRes(new RangeEndPoint(origText, dist1 < dist2),
+		                     Math.min(dist1, dist2));
+	    }
+	}
+	
+	return res;
+    }
+    
+    // 0 if closer to the left edge, 1 if closer to the right.
+    private static int closerOffset(Element ele, int relX)
+    {
+	return ((relX - ele.getAbsoluteLeft()) <= 
+	        (ele.getAbsoluteRight() - relX)) ? 0 : 1;
+    }
+    
+    private static boolean contains(Element ele, int relX, int relY)
+    {
+	/*
+	int l = ele.getAbsoluteLeft();
+	int r = ele.getAbsoluteRight();
+	int t = ele.getAbsoluteTop();
+	int b = ele.getAbsoluteBottom();
+	*/
+	return ((ele.getAbsoluteLeft() <= relX) &&
+		(ele.getAbsoluteRight() >= relX) &&
+		(ele.getAbsoluteTop() <= relY) &&
+		(ele.getAbsoluteBottom() >= relY));
+    }
+    
+    private static int getLocDistance(Element ele, int relX, int relY)
+    {
+	
+	int top = ele.getAbsoluteTop();
+	int bot = ele.getAbsoluteBottom();
+	
+	int res = 0;
+	if (relY < bot)
+	{
+	    res = bot - relY;
+	}
+	else if (relY > top)
+	{
+	    res = relY - top;
+	}
+	
+	int left = ele.getAbsoluteLeft();
+	int right = ele.getAbsoluteRight();
+	if (relX < left)
+	{
+	    res += left - relX;
+	}
+	else if (relX > right)
+	{
+	    res += right - relX;
+	}
+	
+	return res;
+    }
+    
+    private static native boolean isVisible(Document doc, Element ele)
+    /*-{
+    	if (!ele.parentNode) return false;
+    	if (ele.style) 
+    	{
+            if (ele.style.display == 'none') return false;
+            if (ele.style.visibility == 'hidden') return false;
+    	}
+    
+        // Try the computed style in a standard way
+        var wind = doc.defaultView || doc.parentWindow;
+        if (wind && wind.getComputedStyle)
+        {
+            var style = wind.getComputedStyle(ele, null);
+            if (style.display == 'none') return false;
+            if (style.visibility == 'hidden') return false;
+        }
+        
+    	// Don't care about parents, already traversed down them
+    	//return isVisible(obj.parentNode);
+    	return true;
+    }-*/;
+    
+    /*
+        // Or get the computed style using IE's silly proprietary way
+        // I think IE supports getComputedStyle now
+        var style = obj.currentStyle;
+        if (style) 
+        {
+            if (style['display'] == 'none') return false;
+            if (style['visibility'] == 'hidden') return false;
+    	}
+    */
     
     /**
     * Set the offset into the text node
