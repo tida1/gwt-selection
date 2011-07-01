@@ -51,9 +51,11 @@ public class RangeEndPoint implements Comparable<RangeEndPoint>
     }
     
     /**
-    * The textNode containing the start/end of the selection.
+    * The node containing the start/end of the selection.  This can be a 
+    * Text for normal text selections, or an Element for nontextual, for
+    * instance an image. 
     */
-    private Text m_textNode;
+    private Node m_node;
     
     /**
     * The number of characters starting from the beginning of the textNode
@@ -80,6 +82,17 @@ public class RangeEndPoint implements Comparable<RangeEndPoint>
     {
 	this();
 	setElement(element, start);
+    }
+    
+    /**
+    * Create a non-textual range end point that just points to this element
+    * 
+    * @param element Non-textual element to point to
+    */
+    public RangeEndPoint(Element element)
+    {
+	this();
+	setElement(element);
     }
     
     /**
@@ -167,29 +180,45 @@ public class RangeEndPoint implements Comparable<RangeEndPoint>
     */
     public String getString(boolean asStart)
     {
-	if (m_textNode == null)
+	if (!isTextNode())
 	{
 	    return null;
 	}
-	String res = m_textNode.getData();
+	String res = ((Text)m_node).getData();
 	return asStart ? res.substring(m_offset) : res.substring(0, m_offset);
     }
     
     /**
     * Get the text node of this end point, note this can be null if there are
-    * no text anchors available.
+    * no text anchors available or if this is just an element.
     * 
     * @return the text node
     */
     public Text getTextNode()
     {
-	return m_textNode;
+	return isTextNode() ? (Text)m_node : null;
+    }
+    
+    /**
+    * Get the Element of this end point, if this is not a textual end point.
+    * 
+    * @return the text node
+    */
+    public Element getElement()
+    {
+	return isTextNode() ? null : (Element)m_node;
     }
     
     @SuppressWarnings("deprecation")
     public boolean isSpace(Character check)
     {
 	return Character.isSpace(check);
+    }
+    
+    public boolean isTextNode()
+    {
+	return (m_node == null) ? false 
+				: (m_node.getNodeType() == Node.TEXT_NODE);
     }
     
     /**
@@ -203,13 +232,14 @@ public class RangeEndPoint implements Comparable<RangeEndPoint>
     */
     public void minimizeBoundaryTextNodes(boolean asStart)
     {
-	if ((m_textNode != null) && 
-	    (m_offset == (asStart ? m_textNode.getLength() : 0)))
+	Text text = getTextNode();
+	if ((text != null) && 
+	    (m_offset == (asStart ? text.getLength() : 0)))
 	{
-	    Text next = Range.getAdjacentTextElement(m_textNode, asStart);
+	    Text next = Range.getAdjacentTextElement(text, asStart);
 	    if (next != null)
 	    {
-		m_textNode = next;
+		setTextNode(next);
 		m_offset = asStart ? 0 : next.getLength();
 	    }
 	}
@@ -237,87 +267,98 @@ public class RangeEndPoint implements Comparable<RangeEndPoint>
 	
 	Text limitText = (limit == null) ? null : limit.getTextNode();
 	Text curr = getTextNode();
-	Text last = curr;
-	int offset = getOffset();
-	
-	switch (type)
+	if (curr != null)
 	{
-	case MOVE_CHARACTER:
-	    while (curr != null)
+	    Text last = curr;
+	    int offset = getOffset();
+	    
+	    switch (type)
 	    {
-		last = curr;
-		int len = forward ? curr.getLength() - offset : offset;
-		if (curr == limitText)
+	    case MOVE_CHARACTER:
+		while (curr != null)
 		{
-		    // If there is a limiting endpoint, may not be able to
-		    // go as far
-		    len = forward ? (limit.getOffset() - offset) 
-			    	  : (offset - limit.getOffset());
-		}
-		
-		if ((len + res) < count)
-		{
-		    res += len;
-		    
+		    last = curr;
+		    int len = forward ? curr.getLength() - offset : offset;
 		    if (curr == limitText)
 		    {
+			// If there is a limiting endpoint, may not be able to
+			// go as far
+			len = forward ? (limit.getOffset() - offset) 
+				: (offset - limit.getOffset());
+		    }
+		    
+		    if ((len + res) < count)
+		    {
+			res += len;
+			
+			if (curr == limitText)
+			{
+			    break;
+			}
+		    }
+		    else
+		    {
+			// Finis
+			len = count - res;
+			offset = forward ? (offset + len) : offset - len;
+			res = count;
 			break;
 		    }
+		    
+		    do
+		    {
+			// Next node, skipping any 0-length texts
+			curr = Range.getAdjacentTextElement(curr, topMostNode, 
+			                                    forward, false);
+		    } while  ((curr != null) && (curr.getLength() == 0));
+		    
+		    if (curr != null)
+		    {
+			offset = forward ? 0 : curr.getLength();
+		    }
+		    
 		}
-		else
-		{
-		    // Finis
-		    len = count - res;
-		    offset = forward ? (offset + len) : offset - len;
-		    res = count;
-		    break;
-		}
-		
-		do
-		{
-		    // Next node, skipping any 0-length texts
-		    curr = Range.getAdjacentTextElement(curr, topMostNode, 
-		                                        forward, false);
-		} while  ((curr != null) && (curr.getLength() == 0));
-		
-		if (curr != null)
-		{
-		    offset = forward ? 0 : curr.getLength();
-		}
-		
-	    }
-	    break;
+		break;
 	    /*
-	case MOVE_WORDSTART:
-	case MOVE_WORDEND:
-	    if (c_wsRexp == null)
-	    {
-		setWhitespaceRexp(DEFAULT_WS_REXP);
-	    }
-	    
-	    while (curr != null)
-	    {
-		
-		do
+	    case MOVE_WORDSTART:
+	    case MOVE_WORDEND:
+		if (c_wsRexp == null)
 		{
-		    // Next node, skipping any 0-length texts
-		    curr = Range.getAdjacentTextElement(curr, topMostNode, 
-		                                        forward, false);
-		} while  ((curr != null) && (curr.getLength() == 0));
-		
-		if (curr != null)
-		{
-		    offset = forward ? 0 : curr.getLength();
+		    setWhitespaceRexp(DEFAULT_WS_REXP);
 		}
+		
+		while (curr != null)
+		{
+		    
+		    do
+		    {
+			// Next node, skipping any 0-length texts
+			curr = Range.getAdjacentTextElement(curr, topMostNode, 
+			                                    forward, false);
+		    } while  ((curr != null) && (curr.getLength() == 0));
+		    
+		    if (curr != null)
+		    {
+			offset = forward ? 0 : curr.getLength();
+		    }
+		}
+		break;
+		*/
+	    default:
+		assert(false);
 	    }
-	    break;
-	    */
-	default:
-	    assert(false);
+	    setTextNode(last);
+	    setOffset(offset);
 	}
-	setTextNode(last);
-	setOffset(offset);
 	return res;
+    }
+    
+    /**
+    * Sets this start point to be a non-textual element (like an image)
+    */
+    public void setElement(Element element)
+    {
+	m_node = element;
     }
     
     /**
@@ -351,7 +392,7 @@ public class RangeEndPoint implements Comparable<RangeEndPoint>
     */
     public void setTextNode(Text textNode)
     {
-	m_textNode = textNode;
+	m_node = textNode;
     }
     
     /**
