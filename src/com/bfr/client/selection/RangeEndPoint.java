@@ -151,7 +151,7 @@ public class RangeEndPoint implements Comparable<RangeEndPoint>
 	    RangeEndPoint cmp = (RangeEndPoint)obj;
 	    
 	    res = (cmp == this) ||
-	      	  ((cmp.getTextNode() == getTextNode()) &&
+	      	  ((cmp.getNode() == getNode()) &&
 	    	   (cmp.getOffset() == getOffset()));
 	}
 	catch (Exception ex) {}
