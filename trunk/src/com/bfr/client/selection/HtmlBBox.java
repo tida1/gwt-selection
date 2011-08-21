@@ -181,30 +181,41 @@ public class HtmlBBox
             return null;
         }
 	
+        // If this is a cursor, we still need to outline one character
+        boolean isCursor = (offset1 == offset2);
+        boolean posRight = false;
+        if (isCursor)
+        {
+            if (offset1 == len)
+            {
+        	offset1--;
+        	posRight = true;
+            }
+            else
+            {
+        	offset2++;
+            }
+        }
+        
+        // Create 2 or 3 spans of this text, so we can measure
         List<Element> nodes = new ArrayList<Element>(3);
         Element tmpSpan, measureSpan;
         if (offset1 > 0)
         {
+            // First
             tmpSpan = DOM.createSpan();
             tmpSpan.setInnerHTML(text.substring(0, offset1));
             nodes.add(tmpSpan);
         }
         
-        if (offset1 == len)
-        {
-            // Special case where cursor is at the end of the text node,
-            // just get the end
-            measureSpan = nodes.get(0);
-        }
-        else
-        {
-            measureSpan = DOM.createSpan();
-            measureSpan.setInnerHTML(text.substring(offset1, offset2));
-            nodes.add(measureSpan);
-        }
+        // Middle, the one we measure
+        measureSpan = DOM.createSpan();
+        measureSpan.setInnerHTML(text.substring(offset1, offset2));
+        nodes.add(measureSpan);
         
         if (offset2 < (len - 1))
         {
+            // Last
             tmpSpan = DOM.createSpan();
             tmpSpan.setInnerHTML(text.substring(offset2 + 1));
             nodes.add(tmpSpan);
@@ -219,11 +230,11 @@ public class HtmlBBox
         
         parent.removeChild(textNode);
         
-        if (offset1 == len)
+        if (isCursor)
         {
-            // Just make a 0-width version
+            // Just make a 0-width version, depending on left or right
             res = new HtmlBBox(measureSpan.getAbsoluteLeft() +
-                                   	measureSpan.getOffsetWidth(),
+                               (posRight ? measureSpan.getOffsetWidth() : 0),
                                    measureSpan.getAbsoluteTop(),
                                    0,
                                    measureSpan.getOffsetHeight());
