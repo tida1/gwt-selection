@@ -201,7 +201,7 @@ public class RangeImpl
      */
     public native Element getCommonAncestor(JSRange range)
     /*-{
-	return range.commonAncestorContainer();
+	return range.commonAncestorContainer;
     }-*/;
     
     /**
