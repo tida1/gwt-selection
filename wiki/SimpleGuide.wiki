@@ -1,3 +1,4 @@
+#labels Featured
 ==Introduction==
 gwt-selection is a small GWT library implementing cross-browser selection/cursor manipulation.  For most developers, this is useful for implementing a rich Rich Text Editor, where you may want to get the cursor or current selection.  It can also be used to manipulate textual ranges/selections on any page content.  It does not currently deal with non-textual selections such as images.
 
@@ -25,6 +26,8 @@ Ranges and !RangeEndPoints exist independently from the current actual selection
 
 Finally, a _Selection_ object simply represents the selection for a given DOM document.  This is a singleton per document, so you only need to get it once even as the actual selection changes.  Once the Selection is obtained, you can use its methods get and set the selection on its document.  A window has a single document representing all content within it, except for content in frames; each frame has its own separate document.  A GWT !RichTextEditor is implemented inside an iframe, so to manipulate its selection you need to get the Selection object for the iframe's document.
 
+==Bounding Box==
+Also included in the library is the HtmlBBox, used for representing and computing the location on the page of ranges and elements.  This is useful, for instance, if you need to actually place an element on the page relative to the selection.  Note that to compute the bounding box of a range, the library modifies the dom document, by creating spans of the selected text to calculate the position from.  The original nodes are restored once the calculation is complete.
 
 ==Demo==
 The !SelectionTest download is a small unpolished test/demo project, which includes a Rich Text Editor implementation.  The notable use of selection is a smart Link button, which figures out if you have an existing link selected, and in general just works like you'd expect.
